@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Валидация и метрики в PyTorch</title>
+<style>
+:root{--bg:#fff;--tx:#1f2937;--ac:#2563eb;--bx:#eff6ff;--cb:#111827;--cf:#e5e7eb}
+@media (prefers-color-scheme:dark){:root{--bg:#111827;--tx:#f3f4f6;--ac:#60a5fa;--bx:#1e293b;--cb:#020617;--cf:#e5e7eb}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font-family:Arial,sans-serif;overflow:hidden}
+.s{display:none;height:100%;padding:5vh 6vw 12vh;flex-direction:column;justify-content:center}
+.s.on{display:flex}
+h1{font-size:clamp(28px,6vw,56px);margin:0 0 .4em;color:var(--ac)}
+h2{font-size:clamp(24px,4.5vw,40px);margin:0 0 .6em;color:var(--ac)}
+p,li{font-size:clamp(16px,2.6vw,26px);line-height:1.5}
+.box{background:var(--bx);border-radius:10px;padding:.6em 1em;margin:.4em 0}
+pre{background:var(--cb);color:var(--cf);padding:1em;border-radius:8px;font-size:clamp(13px,2.2vw,22px);overflow-x:auto}
+.bar{display:flex;height:60px;border-radius:8px;overflow:hidden;color:#fff;font-weight:bold}
+.bar div{display:flex;align-items:center;justify-content:center}
+button{font-size:clamp(15px,2.4vw,22px);padding:.5em 1em;margin:.3em .3em 0 0;border:0;border-radius:8px;background:var(--ac);color:#fff}
+input[type=range]{width:100%}
+#nav{position:fixed;bottom:0;left:0;right:0;height:10vh;display:flex;justify-content:space-between;align-items:center;padding:0 4vw}
+#nav button{margin:0}
+svg{width:100%;max-height:36vh;background:var(--bx);border-radius:8px}
+td,th{padding:.3em .8em;font-size:clamp(14px,2.4vw,24px);border-bottom:1px solid var(--ac);text-align:left}
+</style></head><body>
+
+<div class="s on">
+<h1>Валидация и метрики в PyTorch</h1>
+<p>train / val / test, model.train() и model.eval()</p>
+<p>Предмет: Разработка программных приложений для бизнес-анализа</p>
+<p>Автор: ФИО студента, группа</p>
+</div>
+
+<div class="s">
+<h2>Зачем нужна валидация?</h2>
+<ul><li>Нейросеть может просто <b>запомнить</b> обучающие данные</li>
+<li>На train всё отлично, на новых данных плохо — это <b>переобучение</b></li>
+<li>Бизнес-пример: модель прогноза оттока клиентов должна работать на <b>новых</b> клиентах</li></ul>
+<div class="box">Чтобы честно оценить модель, нужны данные, которые она не видела</div>
+</div>
+
+<div class="s">
+<h2>Train / Val / Test</h2>
+<div class="bar"><div style="width:70%;background:#2563eb">Train 70%</div><div style="width:15%;background:#16a34a">Val 15%</div><div style="width:15%;background:#dc2626">Test 15%</div></div>
+<ul><li><b>Train</b> — на нём модель учится (считаем градиенты)</li>
+<li><b>Val</b> — подбираем гиперпараметры, выбираем лучшую эпоху</li>
+<li><b>Test</b> — финальная проверка, смотрим <u>один раз</u></li></ul>
+<pre>train, val, test = random_split(ds, [700, 150, 150])</pre>
+</div>
+
+<div class="s">
+<h2>model.train() и model.eval()</h2>
+<table><tr><th></th><th>train()</th><th>eval()</th></tr>
+<tr><td>Dropout</td><td>выключает часть нейронов</td><td>не работает</td></tr>
+<tr><td>BatchNorm</td><td>считает по батчу</td><td>берёт накопленные значения</td></tr>
+<tr><td>Когда</td><td>обучение</td><td>val / test / прогноз</td></tr></table>
+<pre>model.eval()
+with torch.no_grad():   # без градиентов
+    pred = model(x)</pre>
+</div>
+
+<div class="s">
+<h2>Метрики</h2>
+<p>Считаем на val и test, а не на train.</p>
+<ul><li><b>Accuracy</b> — доля верных ответов</li>
+<li><b>Precision</b> — из найденных «уйдёт» сколько правда ушли</li>
+<li><b>Recall</b> — из всех ушедших сколько нашли</li>
+<li><b>F1</b> — баланс precision и recall</li></ul>
+<div class="box">Если классы несбалансированы, одной accuracy мало</div>
+</div>
+
+<div class="s">
+<h2>Пример: кривые обучения</h2>
+<svg id="chart" viewBox="0 0 400 160"></svg>
+<input type="range" id="ep" min="1" max="50" value="5">
+<p id="msg" class="box"></p>
+<p style="margin:0;font-size:clamp(13px,2vw,18px)">Синяя линия — train loss, красная — val loss</p>
+</div>
+
+<div class="s">
+<h2>Пример: Dropout в train и eval</h2>
+<p>Вход: 8 единиц, Dropout(p=0.5). Сумма выхода:</p>
+<button onclick="run(true)">model.train()</button>
+<button onclick="run(false)">model.eval()</button>
+<p id="out" class="box">Нажми на кнопку несколько раз</p>
+<p>В train результат случайный, в eval всегда один и тот же.</p>
+</div>
+
+<div class="s">
+<h2>Выводы</h2>
+<ul><li>Делим данные: train / val / test</li>
+<li>В обучении — <code>model.train()</code>, при проверке — <code>model.eval()</code> и <code>torch.no_grad()</code></li>
+<li>Следим за val loss и метриками, чтобы поймать переобучение</li>
+<li>Test используем один раз в конце</li></ul>
+<p>Спасибо за внимание! Вопросы?</p>
+</div>
+
+<div id="nav"><button onclick="go(-1)">← Назад</button><span id="num"></span><button onclick="go(1)">Вперёд →</button></div>
+
+<script>
+const S=[...document.querySelectorAll('.s')];let i=0;
+function show(){S.forEach((s,k)=>s.classList.toggle('on',k==i));num.textContent=(i+1)+' / '+S.length}
+function go(d){i=Math.max(0,Math.min(S.length-1,i+d));show()}
+document.addEventListener('keydown',e=>{if(e.key=='ArrowRight'||e.key==' ')go(1);if(e.key=='ArrowLeft')go(-1)});
+let x0=0;document.addEventListener('touchstart',e=>x0=e.touches[0].clientX);
+document.addEventListener('touchend',e=>{const d=e.changedTouches[0].clientX-x0;if(Math.abs(d)>70)go(d<0?1:-1)});
+// кривые обучения (учебная имитация)
+const N=50,tr=[],va=[];
+for(let e=1;e<=N;e++){tr.push(1*Math.exp(-0.09*e)+0.03);va.push(0.9*Math.exp(-0.09*e)+0.2+0.0005*Math.pow(Math.max(0,e-18),2))}
+const best=va.indexOf(Math.min(...va))+1;
+function pt(a,k){return (k/(N-1)*380+10)+','+(150-a[k]*130)}
+function draw(){const e=+ep.value;
+chart.innerHTML=`<polyline fill="none" stroke="#2563eb" stroke-width="2" points="${tr.map((_,k)=>pt(tr,k)).join(' ')}"/>
+<polyline fill="none" stroke="#dc2626" stroke-width="2" points="${va.map((_,k)=>pt(va,k)).join(' ')}"/>
+<line x1="${(e-1)/(N-1)*380+10}" x2="${(e-1)/(N-1)*380+10}" y1="5" y2="155" stroke="#888" stroke-dasharray="4"/>`;
+let t=e<best-3?'Модель ещё учится, val loss падает.':e<=best+3?'Лучший момент: val loss минимальный, сохраняем модель.':'Переобучение: train loss падает, а val loss растёт. Пора остановиться.';
+msg.textContent='Эпоха '+e+' (лучшая: '+best+'). '+t}
+ep.oninput=draw;draw();
+function run(t){let s=0;for(let k=0;k<8;k++)s+=t?(Math.random()<0.5?0:2):1;
+out.textContent=(t?'train(): ':'eval(): ')+'сумма = '+s}
+show();
+</script></body></html>
